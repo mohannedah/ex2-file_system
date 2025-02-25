@@ -26,8 +26,6 @@ BitMap<T>::~BitMap()
     {
         delete[] this->blocks;
     }
-    free(&this->block_size);
-    free(&this->size);
 };
 
 template <int T>
@@ -134,3 +132,5 @@ inline bool BitMap<T>::check_boundaries(int index)
 
     return 1;
 };
+
+template class BitMap<8128>;

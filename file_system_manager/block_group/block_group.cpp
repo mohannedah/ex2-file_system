@@ -32,7 +32,7 @@ static int get_starting_block_group_descriptor(int group_number)
 
 int BlockGroupINodeBitMap::copy_write_memory_block(MemoryBlock *block)
 {
-    int *start_ptr = (int *)block;
+    int *start_ptr = (int *)block->data;
 
     *start_ptr = this->size;
 
@@ -42,10 +42,12 @@ int BlockGroupINodeBitMap::copy_write_memory_block(MemoryBlock *block)
 
     start_ptr += 1;
 
+    int cnt_bytes = 8;
     for (int i = 0; i < this->size; i++)
     {
         *start_ptr = this->blocks[i];
         start_ptr += 1;
+        cnt_bytes += 4;
     };
 
     return 0;
@@ -62,7 +64,7 @@ BlockGroupINodeBitMap BlockGroupINodeBitMap::write_inode_bitmap(MemoryBlock *blo
 
 int BlockGroupBlockBitMap::copy_write_memory_block(MemoryBlock *block)
 {
-    int *start_ptr = (int *)block;
+    int *start_ptr = (int *)block->data;
 
     *start_ptr = this->size;
 
@@ -88,6 +90,12 @@ BlockGroupBlockBitMap BlockGroupBlockBitMap::write_block_bitmap(MemoryBlock *blo
     BlockGroupBlockBitMap bitmap_block(start_ptr, start_ptr + 1, start_ptr + 2);
 
     return bitmap_block;
+};
+
+BlockDescriptorManager::BlockDescriptorManager(Disk *disk_manager, BufferPoolManager *buffer_pool)
+{
+    this->disk_manager = disk_manager;
+    this->buffer_pool_manager = buffer_pool;
 };
 
 int BlockDescriptorManager::find_first_empty_data_block(int inode_number)
@@ -146,9 +154,89 @@ int BlockDescriptorManager::write_inode_info(int inode_number, BlockGroupINode *
 
 int BlockDescriptorManager::read_inode_info(int inode_number, BlockGroupINode *inode)
 {
+    int starting_inode = get_starting_block_inode(inode_number);
+
     MemoryBlock *block = this->buffer_pool_manager->get_block(get_starting_block_inode(inode_number));
 
     memcpy(inode, block->data, sizeof(BlockGroupINode));
 
     return 0;
+};
+
+static void initialize_inode_helper(BlockGroupINode *inode)
+{
+    inode->hard_link_count = 0;
+    for (int i = 0; i < BLOCKS_PER_INODE; i++)
+    {
+        inode->blocks[i] = -1;
+    };
+    inode->last_deletion_time = -1;
+    inode->creation_time = get_current_time();
+    inode->last_modification_time = -1;
+    inode->last_access_time = -1;
+    inode->last_deletion_time = -1;
+    inode->inode_mode = -1;
+    inode->file_size = 0;
+};
+
+void BlockDescriptorManager::initialize_inodes()
+{
+    for (int inode_number = 0; inode_number < NUM_INODES_PER_GROUP * NUM_GROUPS; inode_number++)
+    {
+        int block_number = get_starting_block_inode(inode_number);
+
+        BlockGroupINode inode;
+
+        initialize_inode_helper(&inode);
+
+        write_block_disk_helper(block_number, (char *)&inode, this->disk_manager);
+    }
+};
+
+void BlockDescriptorManager::initialize_block_group_bitmaps()
+{
+    MemoryBlock block;
+    BlockGroupINodeBitMap bitmap;
+    BlockGroupBlockBitMap data_block_bitmap;
+    for (int group_number = 0; group_number < NUM_GROUPS; group_number += 1)
+    {
+        int block_number = get_starting_block_inode_bitmap(group_number);
+
+        int status = bitmap.copy_write_memory_block(&block);
+
+        if (status == -1)
+        {
+            perror("Error initializing INode bitmap.");
+            exit(-1);
+        }
+
+        status = write_block_disk_helper(block_number, block.data, this->disk_manager);
+
+        block_number = get_starting_block_bitmap(group_number);
+
+        data_block_bitmap.copy_write_memory_block(&block);
+
+        status = write_block_disk_helper(block_number, block.data, this->disk_manager);
+    };
+};
+
+static void initialize_block_group_descriptor_helper(BlockGroupDescriptor *block_descriptor)
+{
+    block_descriptor->free_blocks_count = DATA_BLOCKS_PER_GROUP;
+    block_descriptor->free_inodes_count = NUM_INODES_PER_GROUP;
+    block_descriptor->user_dirs_count = 0;
+};
+
+void BlockDescriptorManager::initialize_block_group_descriptors()
+{
+    for (int block_group = 0; block_group < NUM_GROUPS; block_group++)
+    {
+        int block_number = get_starting_block_group_descriptor(block_group);
+
+        BlockGroupDescriptor block_descriptor;
+
+        initialize_block_group_descriptor_helper(&block_descriptor);
+
+        write_block_disk_helper(block_number, (char *)&block_descriptor, this->disk_manager);
+    };
 };

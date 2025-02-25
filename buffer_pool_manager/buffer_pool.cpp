@@ -128,6 +128,7 @@ MemoryBlock *BufferPoolManager::get_block(int block_number)
     };
 
     this->update_reference(block_number, list_node);
+
     return list_node->data;
 };
 

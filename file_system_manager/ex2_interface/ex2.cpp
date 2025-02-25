@@ -18,6 +18,10 @@ EX2FILESYSTEM::EX2FILESYSTEM(BufferPoolManager *buffer_pool, BlockDescriptorMana
     read_super_block(&this->super_block, this->disk_manager);
 };
 
+EX2FILESYSTEM::~EX2FILESYSTEM() {
+
+};
+
 static inline void read_helper(int starting_byte, int ending_byte, char *destination_buffer, char *src_buffer)
 {
     int size = ending_byte - starting_byte;
@@ -49,7 +53,7 @@ static inline void check_permissions(int mask_permissions, BlockGroupINode &inod
     }
 
     temp = mask_permissions | (inode.inode_mode);
-
+    cout << temp << endl;
     if (mask_permissions != inode.inode_mode)
     {
         perror("Invalid permissions");
@@ -68,8 +72,14 @@ int EX2FILESYSTEM::my_open(int inode_number, int mask_permissions)
     if (status == -1)
     {
         perror("Inode number is not found");
-        exit(0);
+        exit(-1);
     }
+
+    if (inode.hard_link_count == 0)
+    {
+        perror("File with this inode is not found");
+        exit(-1);
+    };
 
     check_permissions(mask_permissions, inode);
 

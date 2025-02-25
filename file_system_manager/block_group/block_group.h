@@ -5,6 +5,30 @@
 #include "../../helpers/helpers.h"
 #include <bits/stdc++.h>
 
+class BlockGroupINodeBitMap : public BitMap<NUM_INODES_PER_GROUP>
+{
+public:
+    BlockGroupINodeBitMap() : BitMap() {};
+
+    BlockGroupINodeBitMap(int *size, int *block_size, int *blocks) : BitMap(size, block_size, blocks) {};
+
+    int copy_write_memory_block(MemoryBlock *block);
+
+    static BlockGroupINodeBitMap write_inode_bitmap(MemoryBlock *block);
+};
+
+class BlockGroupBlockBitMap : public BitMap<DATA_BLOCKS_PER_GROUP>
+{
+public:
+    BlockGroupBlockBitMap() : BitMap() {};
+
+    BlockGroupBlockBitMap(int *size, int *block_size, int *blocks) : BitMap(size, block_size, blocks) {};
+
+    int copy_write_memory_block(MemoryBlock *block);
+
+    static BlockGroupBlockBitMap write_block_bitmap(MemoryBlock *block);
+};
+
 struct BlockGroupDescriptor
 {
     uint32_t block_bitmap;
@@ -37,26 +61,6 @@ struct BlockGroupINode
     char file_name[50];
 };
 
-class BlockGroupINodeBitMap : public BitMap<NUM_INODES_PER_GROUP>
-{
-public:
-    BlockGroupINodeBitMap(int *size, int *block_size, int *blocks) : BitMap(size, block_size, blocks) {};
-
-    int copy_write_memory_block(MemoryBlock *block);
-
-    static BlockGroupINodeBitMap write_inode_bitmap(MemoryBlock *block);
-};
-
-class BlockGroupBlockBitMap : public BitMap<DATA_BLOCKS_PER_GROUP>
-{
-public:
-    BlockGroupBlockBitMap(int *size, int *block_size, int *blocks) : BitMap(size, block_size, blocks) {};
-
-    int copy_write_memory_block(MemoryBlock *block);
-
-    static BlockGroupBlockBitMap write_block_bitmap(MemoryBlock *block);
-};
-
 class BlockDescriptorManager
 {
 private:
@@ -70,6 +74,9 @@ public:
     int find_first_empty_inode(int block_group_number, BlockGroupDescriptor *block_descriptor);
     int find_first_empty_data_block(int inode_number);
     int read_block_descriptor(int block_number, BlockGroupDescriptor *block_descriptor);
+    void initialize_inodes();
+    void initialize_block_group_descriptors();
+    void initialize_block_group_bitmaps();
 };
 
 #endif

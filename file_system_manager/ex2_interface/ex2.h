@@ -22,7 +22,7 @@ struct SuperBlock
     uint16_t magic_number;
 };
 
-const BlockGroupBlockBitMap *bit_map;
+// const BlockGroupBlockBitMap *bit_map;
 
 struct BlockGroupDescriptorTable
 {
