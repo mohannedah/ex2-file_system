@@ -1,2 +1,0 @@
-/usr/bin/ar qc libbuffer_pool.a CMakeFiles/buffer_pool.dir/buffer_pool.cpp.o
-/usr/bin/ranlib libbuffer_pool.a

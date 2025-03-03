@@ -12,15 +12,19 @@ private:
 
     unordered_map<int, ListNode<MemoryBlock *> *> map; // mapping page_numbers to their linked_list entries
 
-    LinkedList<MemoryBlock *> linked_list;
+    unordered_map<char *, ListNode<MemoryBlock *> *> map_address_to_list_nodes;
+
+    LinkedList<MemoryBlock *> linked_list; // linked_list will store the nodes which are free.
 
     int read_disk(int block_number, MemoryBlock *block);
 
-    ListNode<MemoryBlock *> *read_memory(int block_number);
+    MemoryBlock *read_memory(int block_number);
 
     ListNode<MemoryBlock *> *get_victim_space();
 
     void update_reference(int block_number, ListNode<MemoryBlock *> *list_node);
+
+    ListNode<MemoryBlock *> *try_insert(MemoryBlock *memory_block);
 
     int free_regions();
 
@@ -40,6 +44,8 @@ public:
     MemoryBlock *get_block(int block_number);
 
     bool is_cached_block(int block_number);
+
+    int retain_memory(MemoryBlock *block);
 };
 
 // ---------------------------------------------------Utility Functions---------------------------------------------------

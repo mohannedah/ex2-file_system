@@ -53,6 +53,8 @@ public:
 
     ~EX2FILESYSTEM();
 
+    int create_file(char *file_name, int file_name_size, int file_permissions);
+
     int my_open(int inode_number, int mask_permissions);
 
     int my_close(int file_descriptor);

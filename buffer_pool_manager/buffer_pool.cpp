@@ -1,5 +1,12 @@
 #include "buffer_pool.h"
 
+static inline int flush_helper(MemoryBlock *memory_block, Disk *disk_manager)
+{
+    int block_number = memory_block->block_number;
+
+    write_block_disk_helper(block_number, memory_block->data, disk_manager);
+};
+
 BufferPoolManager::BufferPoolManager(Disk *disk_manager)
 {
     this->disk_manager = disk_manager;
@@ -105,37 +112,52 @@ int BufferPoolManager::write_disk(int block_number)
     return write_block_disk_helper(block_number, buffered_data, this->disk_manager);
 };
 
+ListNode<MemoryBlock *> *BufferPoolManager::try_insert(MemoryBlock *memory_block)
+{
+
+    ListNode<MemoryBlock *> *list_node = this->get_victim_space();
+
+    if (list_node != nullptr)
+    {
+        ListNode<MemoryBlock *> *list_node = this->get_victim_space();
+
+        list_node->data = memory_block;
+
+        this->update_reference(memory_block->block_number, list_node);
+
+        this->curr_size += 1;
+
+        return list_node;
+    }
+
+    return nullptr;
+}
+
 MemoryBlock *BufferPoolManager::get_block(int block_number)
 {
-    ListNode<MemoryBlock *> *list_node;
+    MemoryBlock *memory_block;
+
     if (!is_cached_block(block_number))
-    {
-        list_node = this->get_victim_space();
-
-        if (list_node->data->block_number != -1)
-            this->map.erase(list_node->data->block_number);
-
-        list_node->data->block_number = block_number;
-
-        int status = read_disk(block_number, list_node->data);
-
-        if (status == -1)
-            return nullptr;
-    }
+        memory_block = read_memory(block_number);
     else
+        read_disk(block_number, memory_block);
+
+    ListNode<MemoryBlock *> *list_node = try_insert(memory_block);
+
+    if (list_node != nullptr)
     {
-        list_node = read_memory(block_number);
+        this->linked_list.unlink(list_node);
     };
-
-    this->update_reference(block_number, list_node);
-
-    return list_node->data;
+    return memory_block;
 };
 
 void BufferPoolManager::update_reference(int block_number, ListNode<MemoryBlock *> *list_node)
 {
-    int status = this->linked_list.insert_head(list_node);
     this->map[block_number] = list_node;
+
+    this->map_address_to_list_nodes[list_node->data->data] = list_node;
+
+    list_node->data->is_pinned = true;
 };
 
 bool BufferPoolManager::is_cached_block(int block_number)
@@ -143,24 +165,41 @@ bool BufferPoolManager::is_cached_block(int block_number)
     return this->map.count(block_number);
 };
 
-ListNode<MemoryBlock *> *BufferPoolManager::read_memory(int block_number)
+MemoryBlock *BufferPoolManager::read_memory(int block_number)
 {
     ListNode<MemoryBlock *> *node = this->map[block_number];
 
-    return node;
+    return node->data;
 };
 
 ListNode<MemoryBlock *> *BufferPoolManager::get_victim_space()
 {
     auto node = this->linked_list.get_tail();
 
-    // if (node == nullptr)
-    // {
-    //     return
-    // };
-
-    // this->linked_list.unlink(node);
     return node;
+};
+
+int BufferPoolManager::retain_memory(MemoryBlock *block)
+{
+    char *offset_memory_address = (char *)block->data;
+
+    if (!map_address_to_list_nodes.count(offset_memory_address))
+    {
+        ListNode<MemoryBlock *> *list_node = try_insert(block);
+
+        if (list_node != nullptr)
+            return 0;
+
+        return write_block_disk_helper(block->block_number, offset_memory_address, this->disk_manager);
+    }
+
+    ListNode<MemoryBlock *> *list_node = map_address_to_list_nodes[offset_memory_address];
+
+    list_node->data->is_pinned = false;
+
+    this->linked_list.insert_head(list_node);
+
+    return 0;
 };
 
 //----------------------------------------------------Utility Functions----------------------------------------------------------
@@ -168,6 +207,8 @@ ListNode<MemoryBlock *> *BufferPoolManager::get_victim_space()
 int unlock_and_free(void *block_ptr, size_t region_size)
 {
     munlock(block_ptr, region_size);
+
     free(block_ptr);
+
     return 0;
 };

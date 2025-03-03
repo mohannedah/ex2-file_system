@@ -127,7 +127,7 @@ int BlockDescriptorManager::find_first_empty_inode(int block_group_number, Block
     if (block_descriptor_d.free_inodes_count == 0)
         return -1;
 
-    MemoryBlock *block = this->buffer_pool_manager->get_block(block_descriptor_d.inode_bitmap);
+    MemoryBlock *block = this->buffer_pool_manager->get_block(get_starting_block_inode_bitmap(block_group_number));
 
     BlockGroupINodeBitMap bit_map = BlockGroupINodeBitMap::write_inode_bitmap(block);
 
@@ -163,9 +163,10 @@ int BlockDescriptorManager::read_inode_info(int inode_number, BlockGroupINode *i
     return 0;
 };
 
-static void initialize_inode_helper(BlockGroupINode *inode)
+static void initialize_inode_helper(int id, BlockGroupINode *inode)
 {
     inode->hard_link_count = 0;
+    inode->uid = id;
     for (int i = 0; i < BLOCKS_PER_INODE; i++)
     {
         inode->blocks[i] = -1;
@@ -187,7 +188,7 @@ void BlockDescriptorManager::initialize_inodes()
 
         BlockGroupINode inode;
 
-        initialize_inode_helper(&inode);
+        initialize_inode_helper(inode_number, &inode);
 
         write_block_disk_helper(block_number, (char *)&inode, this->disk_manager);
     }

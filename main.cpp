@@ -29,14 +29,14 @@ int main()
     BufferPoolManager buffer_pool = BufferPoolManager(&disk_manager);
     BlockDescriptorManager descriptor_manager(&disk_manager, &buffer_pool);
 
-    descriptor_manager.initialize_block_group_descriptors();
+    // descriptor_manager.initialize_block_group_descriptors();
 
-    descriptor_manager.initialize_inodes();
+    // descriptor_manager.initialize_inodes();
 
-    descriptor_manager.initialize_block_group_bitmaps();
+    // descriptor_manager.initialize_block_group_bitmaps();
 
     initialize_helper();
     EX2FILESYSTEM file_system(&buffer_pool, &descriptor_manager, &disk_manager);
-    int fd = file_system.my_open(0, READ_BIT | WRITE_BIT);
+    int fd = file_system.my_open(100, READ_BIT | WRITE_BIT);
     return 0;
 }

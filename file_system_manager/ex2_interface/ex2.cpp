@@ -53,7 +53,7 @@ static inline void check_permissions(int mask_permissions, BlockGroupINode &inod
     }
 
     temp = mask_permissions | (inode.inode_mode);
-    cout << temp << endl;
+
     if (mask_permissions != inode.inode_mode)
     {
         perror("Invalid permissions");
@@ -77,6 +77,7 @@ int EX2FILESYSTEM::my_open(int inode_number, int mask_permissions)
 
     if (inode.hard_link_count == 0)
     {
+        cout << inode.uid << endl;
         perror("File with this inode is not found");
         exit(-1);
     };
@@ -331,4 +332,51 @@ int EX2FILESYSTEM::my_file_system_seek(int file_descriptor, int position)
     my_file_info->position = position;
 
     return 0;
+};
+
+static inline void set_vacant_inode(BlockGroupINode *vacant_inode, char *file_name, int file_name_size, int file_permissions)
+{
+    vacant_inode->hard_link_count += 1;
+
+    vacant_inode->file_size = 0;
+
+    vacant_inode->creation_time = get_current_time();
+
+    vacant_inode->last_access_time = get_current_time();
+
+    vacant_inode->inode_mode = file_permissions;
+
+    memcpy(vacant_inode->file_name, file_name, file_name_size);
+};
+
+int EX2FILESYSTEM::create_file(char *file_name, int file_name_size, int file_permissions)
+{
+    BlockGroupDescriptor block_descriptor;
+
+    int vacant_inode_number = -1, curr_block_number = 0;
+
+    while (vacant_inode_number == -1 && curr_block_number < NUM_GROUPS)
+    {
+        int status = this->block_manager->read_block_descriptor(curr_block_number, &block_descriptor);
+
+        vacant_inode_number = this->block_manager->find_first_empty_inode(curr_block_number, &block_descriptor);
+    };
+
+    if (vacant_inode_number == -1)
+    {
+        cout << "No vacant Inodes were found!" << endl;
+        return -1;
+    }
+
+    BlockGroupINode vacant_inode;
+
+    int status = this->block_manager->read_inode_info(vacant_inode_number, &vacant_inode);
+
+    if (status == -1)
+    {
+        perror("Error happened while reading the INode!");
+        exit(0);
+    }
+
+    set_vacant_inode(&vacant_inode, file_name, file_name_size, file_permissions);
 };
