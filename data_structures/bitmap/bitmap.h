@@ -8,14 +8,11 @@ using namespace std;
 template <int T>
 struct BitMap
 {
-protected:
-    int *blocks, size, block_size;
-
-    bool memory_initialized;
-
+public:
     inline bool check_boundaries(int index);
 
-public:
+    int *blocks, size, block_size;
+
     BitMap();
 
     ~BitMap();
@@ -31,6 +28,8 @@ public:
     int is_set(int index);
 
     int flip(int index);
+
+    bool memory_initialized = 0;
 };
 
 #endif

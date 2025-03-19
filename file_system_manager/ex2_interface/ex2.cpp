@@ -9,9 +9,8 @@ static inline void read_super_block(SuperBlock *super_block, Disk *disk_manager)
     memcpy(super_block, block.data, sizeof(SuperBlock));
 };
 
-EX2FILESYSTEM::EX2FILESYSTEM(BufferPoolManager *buffer_pool, BlockDescriptorManager *descriptor_manager, Disk *disk_manager)
+EX2FILESYSTEM::EX2FILESYSTEM(BlockDescriptorManager *descriptor_manager, Disk *disk_manager)
 {
-    this->buffer_pool_manager = buffer_pool;
     this->block_manager = descriptor_manager;
     this->disk_manager = disk_manager;
 
@@ -22,7 +21,7 @@ EX2FILESYSTEM::~EX2FILESYSTEM() {
 
 };
 
-static inline void read_helper(int starting_byte, int ending_byte, char *destination_buffer, char *src_buffer)
+static inline void read_helper(int starting_byte, int ending_byte, char *&destination_buffer, char *src_buffer)
 {
     int size = ending_byte - starting_byte;
 
@@ -33,11 +32,11 @@ static inline void read_helper(int starting_byte, int ending_byte, char *destina
     destination_buffer += size;
 };
 
-static inline void write_helper(int starting_byte, int ending_byte, char *destination_buffer, char *src_buffer)
+static inline void write_helper(int starting_byte, int ending_byte, char *destination_buffer, char *&src_buffer)
 {
     int size = ending_byte - starting_byte;
 
-    memcpy(destination_buffer, src_buffer, size);
+    memcpy(destination_buffer + starting_byte, src_buffer, size);
 
     src_buffer += size;
 };
@@ -63,21 +62,14 @@ static inline void check_permissions(int mask_permissions, BlockGroupINode &inod
 
 int EX2FILESYSTEM::my_open(int inode_number, int mask_permissions)
 {
-    MyFile *my_file = (MyFile *)malloc(sizeof(MyFile));
-
     BlockGroupINode inode;
 
-    int status = this->block_manager->read_inode_info(inode_number, &inode);
+    MyFile *my_file = (MyFile *)malloc(sizeof(MyFile));
 
-    if (status == -1)
-    {
-        perror("Inode number is not found");
-        exit(-1);
-    }
+    this->block_manager->read_inode_info(inode_number, &inode);
 
     if (inode.hard_link_count == 0)
     {
-        cout << inode.uid << endl;
         perror("File with this inode is not found");
         exit(-1);
     };
@@ -89,6 +81,8 @@ int EX2FILESYSTEM::my_open(int inode_number, int mask_permissions)
     my_file->position = 0;
 
     my_file->file_size = inode.file_size;
+
+    my_file->is_directory = inode.is_directory;
 
     int file_descriptor_id = created_file_descriptors++;
 
@@ -109,18 +103,18 @@ int EX2FILESYSTEM::my_close(int file_descriptor)
     return 0;
 };
 
-static inline MemoryBlock *get_data_block(int inode_number, int block_idx, BlockGroupINode &inode, BufferPoolManager *buffer_pool, BlockDescriptorManager *block_manager)
+static inline int get_data_block(int inode_number, int block_idx, BlockGroupINode &inode, BlockDescriptorManager *block_manager, MemoryBlock *block, Disk *disk_manager)
 {
-    int is_occupied = inode.blocks[block_idx] != -1;
+    int is_occupied = inode.blocks[block_idx] != 0;
 
     if (is_occupied)
-        return buffer_pool->get_block(inode.blocks[block_idx]);
+        return retreive_block_disk_helper(inode.blocks[block_idx], block, disk_manager);
 
     int free_block_number = block_manager->find_first_empty_data_block(inode_number);
 
     inode.blocks[block_idx] = free_block_number;
 
-    return buffer_pool->get_block(inode.blocks[block_idx]);
+    return retreive_block_disk_helper(inode.blocks[block_idx], block, disk_manager);
 };
 
 int EX2FILESYSTEM::my_file_system_read(int file_descriptor, char *buffer, int size)
@@ -141,67 +135,67 @@ int EX2FILESYSTEM::my_file_system_read(int file_descriptor, char *buffer, int si
 
     BlockGroupINode inode;
 
-    int status = this->block_manager->read_inode_info(my_file_info->inode_number, &inode);
+    this->block_manager->read_inode_info(my_file_info->inode_number, &inode);
+
+    if (inode.hard_link_count == 0)
+    {
+        cout << "INode is corrupted" << endl;
+        return -1;
+    }
 
     inode.last_access_time = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
 
-    if (status == -1)
-    {
-        perror("Invalid Inode Number.");
-        exit(0);
-    }
-
-    char destination_buffer[size];
-
-    char *start_ptr = destination_buffer;
-
     int starting_block = my_file_info->position / BLOCK_SIZE, ending_block = (my_file_info->position + size - 1) / BLOCK_SIZE;
+
+    MemoryBlock block;
 
     if (starting_block == ending_block)
     {
-        MemoryBlock *block = this->buffer_pool_manager->get_block(inode.blocks[starting_block]);
+        int status = retreive_block_disk_helper(inode.blocks[starting_block], &block, this->disk_manager);
 
-        if (block == nullptr)
+        if (status == -1)
         {
             perror("Invalid block number!");
             exit(0);
         }
-        read_helper(my_file_info->position % BLOCK_SIZE, (my_file_info->position % BLOCK_SIZE) + size, destination_buffer, block->data);
+
+        read_helper(my_file_info->position % BLOCK_SIZE, (my_file_info->position % BLOCK_SIZE) + size, buffer, block.data);
     }
     else
     {
-        MemoryBlock *block = this->buffer_pool_manager->get_block(inode.blocks[starting_block]);
+        int status = retreive_block_disk_helper(inode.blocks[starting_block], &block, this->disk_manager);
 
-        if (block == nullptr)
+        if (status == -1)
         {
             perror("Invalid block number!");
             exit(0);
         }
 
-        read_helper(my_file_info->position % BLOCK_SIZE, BLOCK_SIZE, destination_buffer, block->data);
+        read_helper(my_file_info->position % BLOCK_SIZE, BLOCK_SIZE, buffer, block.data);
 
         for (int curr_block_idx = starting_block + 1; curr_block_idx < ending_block; curr_block_idx += 1)
         {
             int block_number = inode.blocks[curr_block_idx];
 
-            block = this->buffer_pool_manager->get_block(block_number);
+            status = retreive_block_disk_helper(block_number, &block, this->disk_manager);
 
-            if (block == nullptr)
+            if (status == -1)
             {
                 perror("Invalid block number!");
                 exit(0);
             }
-            read_helper(0, BLOCK_SIZE, destination_buffer, block->data);
+
+            read_helper(0, BLOCK_SIZE, buffer, block.data);
         };
 
         int ending_byte = (my_file_info->position + size - 1) % BLOCK_SIZE;
 
-        block = this->buffer_pool_manager->get_block(inode.blocks[ending_block]);
+        status = retreive_block_disk_helper(inode.blocks[ending_block], &block, this->disk_manager);
 
-        read_helper(0, ending_byte + 1, destination_buffer, block->data);
+        read_helper(0, ending_byte + 1, buffer, block.data);
     };
 
-    memcpy(buffer, start_ptr, size);
+    my_file_info->position += size;
 
     return 0;
 };
@@ -226,91 +220,132 @@ int EX2FILESYSTEM::my_file_system_write(int file_descriptor, char *buffer, int s
 
     BlockGroupINode inode;
 
-    int status = this->block_manager->read_inode_info(my_file_info->inode_number, &inode);
+    this->block_manager->read_inode_info(my_file_info->inode_number, &inode);
+
+    if (inode.hard_link_count == 0)
+    {
+        cout << "INode is corrupted." << endl;
+        return -1;
+    }
+
+    inode.file_size = new_size;
 
     inode.last_modification_time = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
 
-    if (status == -1)
-    {
-        perror("Invalid Inode number!");
-        exit(0);
-    }
+    int starting_block = (my_file_info->file_size / BLOCK_SIZE), ending_block = ((my_file_info->position + size - 1) / BLOCK_SIZE);
 
-    int starting_block = (my_file_info->position / BLOCK_SIZE), ending_block = ((my_file_info->position + size - 1) % BLOCK_SIZE);
+    MemoryBlock block;
 
     if (starting_block == ending_block)
     {
-        MemoryBlock *block = get_data_block(my_file_info->inode_number, starting_block, inode, this->buffer_pool_manager, this->block_manager);
+        get_data_block(my_file_info->inode_number, starting_block, inode, this->block_manager, &block, this->disk_manager);
 
-        int starting_byte = my_file_info->position % BLOCK_SIZE, ending_byte = starting_byte + size;
+        int starting_byte = my_file_info->file_size % BLOCK_SIZE, ending_byte = starting_byte + size;
 
-        write_helper(starting_byte, ending_byte, block->data, buffer);
+        write_helper(starting_byte, ending_byte, block.data, buffer);
+
+        write_block_disk_helper(inode.blocks[starting_block], block.data, this->disk_manager);
     }
     else
     {
-        MemoryBlock *block = get_data_block(my_file_info->inode_number, starting_block, inode, this->buffer_pool_manager, this->block_manager);
+        get_data_block(my_file_info->inode_number, starting_block, inode, this->block_manager, &block, this->disk_manager);
 
         int starting_byte = my_file_info->position % BLOCK_SIZE, ending_byte = BLOCK_SIZE;
 
-        write_helper(starting_byte, ending_byte, block->data, buffer);
+        write_helper(starting_byte, ending_byte, block.data, buffer);
+
+        write_block_disk_helper(inode.blocks[starting_block], block.data, this->disk_manager);
 
         for (int curr_block_idx = starting_block; curr_block_idx < ending_block; curr_block_idx++)
         {
-            block = get_data_block(my_file_info->inode_number, curr_block_idx, inode, this->buffer_pool_manager, this->block_manager);
+            get_data_block(my_file_info->inode_number, curr_block_idx, inode, this->block_manager, &block, this->disk_manager);
 
-            write_helper(0, BLOCK_SIZE, block->data, buffer);
+            write_helper(0, BLOCK_SIZE, block.data, buffer);
+
+            write_block_disk_helper(inode.blocks[curr_block_idx], block.data, this->disk_manager);
         };
 
-        block = get_data_block(my_file_info->inode_number, ending_block, inode, this->buffer_pool_manager, this->block_manager);
+        get_data_block(my_file_info->inode_number, ending_block, inode, this->block_manager, &block, this->disk_manager);
 
         ending_byte = (my_file_info->position + size - 1) % BLOCK_SIZE;
 
-        write_helper(0, ending_byte + 1, block->data, buffer);
+        write_helper(0, ending_byte + 1, block.data, buffer);
+
+        write_block_disk_helper(inode.blocks[ending_block], block.data, this->disk_manager);
     };
+
+    my_file_info->file_size = new_size;
+
     return 0;
 };
 
-int EX2FILESYSTEM::my_file_system_create_file(char *file_name, int file_permissions)
+int EX2FILESYSTEM::my_file_system_write_at(int file_descriptor, int start_position, char *buffer, int size)
 {
-    BlockGroupDescriptor block_group;
-
-    int empty_inode_number;
-
-    for (int curr_block_group_idx = 0; curr_block_group_idx < NUM_GROUPS; curr_block_group_idx++)
+    if (!mp.count(file_descriptor))
     {
-        this->block_manager->read_block_descriptor(curr_block_group_idx, &block_group);
+        cout << "Invalid file descriptor" << endl;
+        return -1;
+    }
 
-        empty_inode_number = this->block_manager->find_first_empty_inode(curr_block_group_idx, &block_group);
+    MyFile *my_file = this->mp[file_descriptor];
 
-        if (empty_inode_number != -1)
-            break;
-    };
-
-    if (empty_inode_number == -1)
+    if (my_file->permissions & (1 << WRITE_BIT))
     {
-        cout << "No empty inodes are available" << endl;
+        cout << "File has no write permissions" << endl;
         return -1;
     }
 
     BlockGroupINode inode;
 
-    int status = this->block_manager->read_inode_info(empty_inode_number, &inode);
+    int status = this->block_manager->read_inode_info(my_file->inode_number, &inode);
 
-    int creation_time = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
+    if (status == -1)
+    {
+        cout << "INode is not found" << endl;
+        return -1;
+    }
 
-    inode.creation_time = creation_time;
+    inode.last_modification_time = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
 
-    inode.last_modification_time = creation_time;
+    int end_position = start_position + size;
 
-    strcpy(inode.file_name, file_name);
+    int starting_block = start_position / BLOCKS_PER_INODE, ending_block = (end_position - 1) / BLOCKS_PER_INODE;
 
-    inode.hard_link_count = 1;
+    MemoryBlock block;
 
-    inode.uid = empty_inode_number;
+    if (starting_block == ending_block)
+    {
+        int status = get_data_block(my_file->inode_number, starting_block, inode, this->block_manager, &block, this->disk_manager);
 
-    inode.inode_mode = file_permissions;
+        write_helper(start_position % BLOCK_SIZE, end_position, block.data, buffer);
 
-    return 0;
+        write_block_disk_helper(inode.blocks[starting_block], block.data, this->disk_manager);
+    }
+    else
+    {
+        int status = get_data_block(my_file->inode_number, starting_block, inode, this->block_manager, &block, this->disk_manager);
+
+        write_helper(start_position % BLOCK_SIZE, BLOCK_SIZE, block.data, buffer);
+
+        write_block_disk_helper(inode.blocks[starting_block], block.data, this->disk_manager);
+
+        for (int block_idx = starting_block + 1; block_idx <= ending_block - 1; block_idx += 1)
+        {
+            status = get_data_block(my_file->inode_number, block_idx, inode, this->block_manager, &block, this->disk_manager);
+
+            write_helper(0, BLOCK_SIZE, block.data, buffer);
+
+            write_block_disk_helper(inode.blocks[block_idx], block.data, this->disk_manager);
+        }
+
+        status = get_data_block(my_file->inode_number, ending_block, inode, this->block_manager, &block, this->disk_manager);
+
+        write_helper(0, end_position % BLOCK_SIZE, block.data, buffer);
+
+        write_block_disk_helper(inode.blocks[ending_block], block.data, this->disk_manager);
+    };
+
+    return 1;
 };
 
 int EX2FILESYSTEM::my_file_system_seek(int file_descriptor, int position)
@@ -334,7 +369,7 @@ int EX2FILESYSTEM::my_file_system_seek(int file_descriptor, int position)
     return 0;
 };
 
-static inline void set_vacant_inode(BlockGroupINode *vacant_inode, char *file_name, int file_name_size, int file_permissions)
+static inline void set_vacant_inode(BlockGroupINode *vacant_inode, char *file_name, int file_name_size, int file_permissions, bool is_directory)
 {
     vacant_inode->hard_link_count += 1;
 
@@ -347,9 +382,11 @@ static inline void set_vacant_inode(BlockGroupINode *vacant_inode, char *file_na
     vacant_inode->inode_mode = file_permissions;
 
     memcpy(vacant_inode->file_name, file_name, file_name_size);
+
+    vacant_inode->is_directory = is_directory;
 };
 
-int EX2FILESYSTEM::create_file(char *file_name, int file_name_size, int file_permissions)
+int EX2FILESYSTEM::create_file(char *file_name, int file_name_size, int file_permissions, bool is_directory)
 {
     BlockGroupDescriptor block_descriptor;
 
@@ -360,6 +397,8 @@ int EX2FILESYSTEM::create_file(char *file_name, int file_name_size, int file_per
         int status = this->block_manager->read_block_descriptor(curr_block_number, &block_descriptor);
 
         vacant_inode_number = this->block_manager->find_first_empty_inode(curr_block_number, &block_descriptor);
+
+        curr_block_number += 1;
     };
 
     if (vacant_inode_number == -1)
@@ -370,13 +409,64 @@ int EX2FILESYSTEM::create_file(char *file_name, int file_name_size, int file_per
 
     BlockGroupINode vacant_inode;
 
-    int status = this->block_manager->read_inode_info(vacant_inode_number, &vacant_inode);
+    this->block_manager->read_inode_info(vacant_inode_number, &vacant_inode);
 
-    if (status == -1)
+    set_vacant_inode(&vacant_inode, file_name, file_name_size, file_permissions, is_directory);
+
+    return vacant_inode_number;
+};
+
+int EX2FILESYSTEM::delete_file(int inode_number)
+{
+    BlockGroupINode inode;
+
+    this->block_manager->write_inode_info(inode_number, &inode);
+
+    if (inode.hard_link_count == 0)
     {
-        perror("Error happened while reading the INode!");
-        exit(0);
+        cout << "File is already deleted!" << endl;
+        return -1;
     }
 
-    set_vacant_inode(&vacant_inode, file_name, file_name_size, file_permissions);
+    inode.hard_link_count -= 1;
+
+    if (inode.hard_link_count == 0)
+    {
+        for (int i = 0; i < BLOCKS_PER_INODE; i++)
+            inode.blocks[i] = 0;
+
+        int group_number = inode_number / NUM_INODES_PER_GROUP;
+
+        BlockGroupDescriptor block_descriptor;
+
+        this->block_manager->read_block_descriptor(group_number, &block_descriptor);
+
+        block_descriptor.free_inodes_count -= 1;
+    };
+    return 1;
+};
+
+int EX2FILESYSTEM::rename_file(int inode_number, char *file_name, int file_name_size)
+{
+    BlockGroupINode inode;
+
+    this->block_manager->write_inode_info(inode_number, &inode);
+
+    if (inode.hard_link_count == 0)
+    {
+        cout << "This inode is not attached to a file!" << endl;
+        return -1;
+    }
+
+    memcpy(inode.file_name, file_name, file_name_size);
+
+    return 1;
+};
+
+MyFile *EX2FILESYSTEM::get_file_info(int file_descriptor)
+{
+    if (!this->mp.count(file_descriptor))
+        return nullptr;
+
+    return this->mp[file_descriptor];
 };

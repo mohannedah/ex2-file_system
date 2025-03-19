@@ -6,6 +6,7 @@
 inline int write_block_disk_helper(int block_number, char *data, Disk *disk_manager)
 {
     char *start_ptr = data;
+
     int num_sectors = BLOCK_SIZE / SECTOR_SIZE;
 
     Sector disk_sector;
@@ -15,6 +16,7 @@ inline int write_block_disk_helper(int block_number, char *data, Disk *disk_mana
     for (int i = 0; i < num_sectors; i++)
     {
         memcpy(disk_sector.buffer, start_ptr, SECTOR_SIZE);
+
         int status = disk_manager->write_sector(sector_number, &disk_sector);
 
         if (status == -1)

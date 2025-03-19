@@ -15,8 +15,8 @@ const uint64_t BLOCK_SIZE = (2 * SECTOR_SIZE), NUM_GROUPS = 4,
                RESERVED_GROUP_SIZES = (BLOCKS_GROUP_RESERVED * 1024), // Reserved for the GroupDescriptor, INodeBitmap, INodeTable and BlockBitmap.
     BLOCKS_PER_GROUP = (TOTAL_SIZE_PER_GROUP - RESERVED_GROUP_SIZES) / 1024,
                BLOCKS_PER_INODE = 9, // I've choosen this number to make the BLOCKS_PER_GROUP divisible by this (number + 1) i.e 10.
-    NUM_INODES_PER_GROUP = 8128,
-               DATA_BLOCKS_PER_GROUP = 8128;
+    NUM_INODES_PER_GROUP = 8064,
+               DATA_BLOCKS_PER_GROUP = 8064;
 
 struct Sector
 {

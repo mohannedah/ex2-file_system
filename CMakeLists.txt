@@ -3,7 +3,6 @@ project(MyProject)
 
 add_subdirectory(disk_simulator_manager)
 add_subdirectory(data_structures)
-add_subdirectory(buffer_pool_manager)
 add_subdirectory(file_system_manager)
 
 add_executable(main main.cpp)
@@ -13,8 +12,7 @@ target_link_libraries(main PRIVATE
     ex2
     disk_manager  
     bitmap        
-    linked_list   
-    buffer_pool   
+    linked_list      
 )
 
 target_include_directories(main PRIVATE ${CMAKE_BINARY_DIR})

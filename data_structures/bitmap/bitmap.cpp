@@ -20,27 +20,31 @@ BitMap<T>::BitMap()
 }
 
 template <int T>
-BitMap<T>::~BitMap()
-{
-    if (this->memory_initialized)
-    {
-        delete[] this->blocks;
-    }
+BitMap<T>::~BitMap(){
+
 };
 
 template <int T>
-BitMap<T>::BitMap(int *block_size, int *size, int *blocks)
+BitMap<T>::BitMap(int *block_size, int *size, int *my_blocks)
 {
+
     this->size = *size;
     this->block_size = *block_size;
-    this->blocks = blocks;
+    this->blocks = new int[this->size];
+    for (int i = 0; i < this->size; i++)
+    {
+        this->blocks[i] = my_blocks[i];
+    };
 };
 
 template <int T>
 int BitMap<T>::get_least_significant_bit(int start_range, int end_range)
 {
     if (!(check_boundaries(start_range) && check_boundaries(end_range)))
+    {
+        cout << "True" << endl;
         return -1;
+    }
 
     int starting_block = (start_range / this->block_size), ending_block = end_range / this->block_size;
 
@@ -133,4 +137,4 @@ inline bool BitMap<T>::check_boundaries(int index)
     return 1;
 };
 
-template class BitMap<8128>;
+template class BitMap<8064>;
