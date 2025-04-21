@@ -2,8 +2,8 @@
 
 Disk::Disk()
 {
-    this->file_descriptor = open("./file_image", O_RDWR);
-    // cout << this->file_descriptor << endl;
+    this->file_descriptor = open("../file_image", O_RDWR);
+    cout << this->file_descriptor << endl;
 }
 
 Disk::~Disk()

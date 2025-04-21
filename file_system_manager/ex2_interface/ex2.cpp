@@ -420,7 +420,13 @@ int EX2FILESYSTEM::delete_file(int inode_number)
 {
     BlockGroupINode inode;
 
-    this->block_manager->write_inode_info(inode_number, &inode);
+    int status = this->block_manager->read_inode_info(inode_number, &inode);
+
+    if(status == -1) 
+    {
+        cout << "Inode is not found!" << endl;
+        return -1;
+    }
 
     if (inode.hard_link_count == 0)
     {
@@ -446,6 +452,7 @@ int EX2FILESYSTEM::delete_file(int inode_number)
     return 1;
 };
 
+
 int EX2FILESYSTEM::rename_file(int inode_number, char *file_name, int file_name_size)
 {
     BlockGroupINode inode;
@@ -459,6 +466,28 @@ int EX2FILESYSTEM::rename_file(int inode_number, char *file_name, int file_name_
     }
 
     memcpy(inode.file_name, file_name, file_name_size);
+
+    return 1;
+};
+
+int EX2FILESYSTEM::increment_hard_link_count(int inode_number) {
+    BlockGroupINode inode;
+    
+    int status = this->block_manager->read_inode_info(inode_number, &inode);
+
+    if(status == -1) {
+        cout << "Inode with this inode number is not found!" << endl;
+        return -1;
+    }
+    
+    inode.hard_link_count += 1;
+
+    int status = this->block_manager->write_inode_info(inode_number, &inode);
+
+    if(status == -1) {
+        cout << "An error has occured while flushing the inode info!" << endl;
+        return -1;
+    }
 
     return 1;
 };

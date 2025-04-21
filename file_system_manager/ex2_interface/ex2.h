@@ -4,6 +4,8 @@
 #include "../../helpers/helpers.h"
 #include "../block_group/block_group.h"
 
+class BlockDescriptorManager;
+
 struct SuperBlock
 {
     uint32_t inodes_count;
@@ -22,7 +24,6 @@ struct SuperBlock
     uint16_t magic_number;
 };
 
-// const BlockGroupBlockBitMap *bit_map;
 
 struct BlockGroupDescriptorTable
 {
@@ -37,6 +38,7 @@ struct MyFile
     int permissions;
     bool is_directory;
 };
+
 
 class EX2FILESYSTEM
 {
@@ -70,6 +72,8 @@ public:
     int delete_file(int inode_number);
 
     int rename_file(int inode_number, char *file_name, int file_name_size);
+
+    int increment_hard_link_count(int inode_number);
 
     MyFile *get_file_info(int file_descriptor);
 };

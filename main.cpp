@@ -40,16 +40,20 @@ int main()
 
     EX2FILESYSTEM file_system(&descriptor_manager, disk_manager);
 
-    int vacant_inode = file_system.create_file("Mohanned Ahmed", sizeof("Mohanned Ahmed"), READ_BIT | WRITE_BIT);
+    int vacant_inode = file_system.create_file("Mohanned Ahmed", sizeof("Mohanned Ahmed"), READ_BIT | WRITE_BIT, 0);
 
     int fd = file_system.my_open(vacant_inode, READ_BIT | WRITE_BIT);
 
+    file_system.my_file_system_write(fd, "Mohanned Ahmed", sizeof("Mohanned Ahmed") - 1);
+
+    file_system.my_file_system_write(fd, " Mohanned Ahmed", sizeof(" Mohanned Ahmed") - 1);
     char *some_string = "Mohanned Ahmed";
 
     char buffer[strlen(some_string) + strlen(some_string) + 2];
 
-    file_system.my_file_system_read(fd, buffer, strlen(some_string) + strlen(some_string) + 1);
+    file_system.my_file_system_read(fd, buffer, strlen("Mohanned Ahmed") * 2 + 1);
 
+    buffer[strlen(some_string)*2 + 1] = '\0';
     cout << buffer << endl;
     return 0;
 }
