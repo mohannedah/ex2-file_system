@@ -5,6 +5,12 @@
 
 struct DirectoryStructure
 {
+public:
+
+    DirectoryStructure() {
+        
+    };
+
     char file_name[50];
     int inode_number;
     uint16_t mask_permissions;
@@ -36,6 +42,16 @@ struct DirectoryStructure
 
         copy_char_bytes(buffer);
     };
+
+    DirectoryStructure(DirectoryStructure &dir_struct) {
+        memcpy(this->file_name, dir_struct.file_name, sizeof(this->file_name));
+
+        this->inode_number = dir_struct.inode_number;
+
+        this->is_directory = dir_struct.is_directory;
+
+        this->mask_permissions = dir_struct.mask_permissions;
+    }
 };
 
 char curr_directory_name[50];

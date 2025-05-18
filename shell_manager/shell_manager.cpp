@@ -153,7 +153,7 @@ static inline void set_vacant_dir_struct(DirectoryStructure *dir_struct, int ino
 {
     dir_struct->inode_number = inode_number;
 
-    memcpy(dir_struct->file_name, file_name.c_str(), strlen(file_name.c_str()));
+    memcpy(dir_struct->file_name, file_name.c_str(), file_name.size() + 1);
 
     dir_struct->mask_permissions = mask_permissions;
 
@@ -298,8 +298,7 @@ int create_directory(string file_name)
     return 0;
 };
 
-
-int create_hard_link(string file_name, string corresponding_file_name) 
+int create_hard_link(string file_name, string corresponding_file_name)
 {
     vector<string> splitted_file_name;
 
@@ -309,15 +308,18 @@ int create_hard_link(string file_name, string corresponding_file_name)
 
     DirectoryStructure dir_struct;
 
-    for(int i = 0; i < splitted_file_name.size() - 1, i++;) {
+    for (int i = 0; i < splitted_file_name.size() - 1, i++;)
+    {
         int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
 
-        if(status == -1) {
+        if (status == -1)
+        {
             cout << "File " << splitted_file_name[i] << " is not found!" << endl;
             return -1;
         }
 
-        if(!dir_struct.is_directory) {
+        if (!dir_struct.is_directory)
+        {
             cout << "File " << splitted_file_name[i] << " is not a directory!" << endl;
             return -1;
         }
@@ -329,7 +331,7 @@ int create_hard_link(string file_name, string corresponding_file_name)
 
     string extracted_file_name = splitted_file_name.back();
 
-    memcpy(new_dir_struct.file_name, extracted_file_name.c_str(), extracted_file_name.size());
+    memcpy(new_dir_struct.file_name, extracted_file_name.c_str(), extracted_file_name.size() + 1);
 
     new_dir_struct.file_name[extracted_file_name.size()] = '\0';
 
@@ -337,9 +339,53 @@ int create_hard_link(string file_name, string corresponding_file_name)
 
     int curr_inode_number = curr_directory_inode_number;
 
-    for(int i = 0; i < splitted_file_name.size() - 1; i++) {
+    for (int i = 0; i < splitted_file_name.size() - 1; i++)
+    {
         int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
 
+        if (status == -1)
+        {
+            cout << "File " << splitted_file_name[i] << " is not found!" << endl;
+            return -1;
+        }
+
+        if (!dir_struct.is_directory)
+        {
+            cout << "File " << splitted_file_name[i] << " is not a directory!" << endl;
+            return -1;
+        }
+
+        curr_inode_number = dir_struct.inode_number;
+    };
+
+    string extracted_file_name_corresponding = splitted_file_name.back();
+
+    int status = get_file_info(curr_inode_number, extracted_file_name_corresponding, &dir_struct);
+
+    status = ex2_file_system->increment_hard_link_count(dir_struct.inode_number);
+
+    if (status == -1)
+    {
+        cout << "An error has occured while incrementing the hard link count" << endl;
+        return -1;
+    }
+
+    return 1;
+};
+
+int create_soft_link(string file_name, string corresponding_file_name)
+{
+    vector<string> splitted_file_name;
+
+    split_file_name(file_name, splitted_file_name);
+
+    int curr_inode_number = curr_directory_inode_number;
+
+    DirectoryStructure dir_struct;
+
+    for(int i = 0; i < splitted_file_name.size() - 1; i++) {
+        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
+        
         if(status == -1) {
             cout << "File " << splitted_file_name[i] << " is not found!" << endl;
             return -1;
@@ -353,25 +399,48 @@ int create_hard_link(string file_name, string corresponding_file_name)
         curr_inode_number = dir_struct.inode_number;
     };
 
-    string extracted_file_name_corresponding = splitted_file_name.back();
-    
-    int status = get_file_info(curr_inode_number, extracted_file_name_corresponding, &dir_struct);
+    string new_file_name = splitted_file_name.back();
 
-    new_dir_struct.inode_number = dir_struct.inode_number;
-
-    new_dir_struct.mask_permissions = dir_struct.mask_permissions;
-
-    new_dir_struct.is_directory = dir_struct.is_directory;
-
-    status = ex2_file_system->increment_hard_link_count(new_dir_struct.inode_number);
-
-    if(status == -1) 
-    {
-        cout << "An error has occured while incrementing the hard link count" << endl;
+    if(get_file_info(curr_inode_number, file_name, &dir_struct) == 0) {
+        cout << "File with the name " << splitted_file_name.back() << " already exists" << endl;
         return -1;
     }
 
-    return 1;
+    split_file_name(corresponding_file_name, splitted_file_name);
+
+    int curr_corresponding_inode_number = curr_directory_inode_number;
+
+    for(int i = 0; i < splitted_file_name.size(); i++) {
+        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
+
+        if(status == -1) {
+            cout << "File " << splitted_file_name[i] << " is not found!" << endl;
+            return -1;
+        }
+
+        if((i != splitted_file_name.size() - 1) && !dir_struct.is_directory) {
+            cout << "File " << splitted_file_name[i] << " is not a directory" << endl;
+            return -1;
+        }
+
+        curr_corresponding_inode_number = dir_struct.inode_number;
+    }
+
+    DirectoryStructure new_struct(dir_struct);
+
+    memcpy(new_struct.file_name, new_file_name.c_str(), new_file_name.size() + 1);
+
+    int file_descriptor = ex2_file_system->my_open(curr_inode_number, WRITE_BIT);
+
+    char buffer[sizeof(DirectoryStructure)];
+
+    new_struct.write_char_bytes(buffer);
+
+    ex2_file_system->my_file_system_write(file_descriptor, buffer, sizeof(DirectoryStructure));
+
+    ex2_file_system->my_close(file_descriptor);
+
+    return 0;
 };
 
 void print_curr_directory_name()
