@@ -482,7 +482,7 @@ int EX2FILESYSTEM::increment_hard_link_count(int inode_number) {
     
     inode.hard_link_count += 1;
 
-    int status = this->block_manager->write_inode_info(inode_number, &inode);
+    status = this->block_manager->write_inode_info(inode_number, &inode);
 
     if(status == -1) {
         cout << "An error has occured while flushing the inode info!" << endl;

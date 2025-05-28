@@ -27,14 +27,16 @@ Disk *disk_manager = new Disk();
 
 int main()
 {
-
     BlockDescriptorManager descriptor_manager(disk_manager);
 
     descriptor_manager.initialize_block_group_bitmaps();
 
+
     descriptor_manager.initialize_block_group_descriptors();
 
+
     descriptor_manager.initialize_inodes();
+
 
     initialize_helper(disk_manager);
 

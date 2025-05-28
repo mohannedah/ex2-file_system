@@ -73,7 +73,6 @@ int BlockGroupINodeBitMap::copy_write_memory_block(MemoryBlock *block)
     int *start_ptr = (int *)block->data;
 
     *start_ptr = this->size;
-
     start_ptr += 1;
 
     *start_ptr = this->block_size;
@@ -274,12 +273,13 @@ void BlockDescriptorManager::initialize_block_group_bitmaps()
 
     BlockGroupBlockBitMap data_block_bitmap;
 
+
     for (int group_number = 0; group_number < NUM_GROUPS; group_number += 1)
     {
         int block_number = get_starting_block_inode_bitmap(group_number);
-
+        
         bitmap.block_number = block_number;
-
+        
         int status = bitmap.copy_write_memory_block(&block);
 
         if (status == -1)

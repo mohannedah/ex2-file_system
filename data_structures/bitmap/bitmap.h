@@ -9,7 +9,7 @@ template <int T>
 struct BitMap
 {
 public:
-    inline bool check_boundaries(int index);
+    bool check_boundaries(int index);
 
     int *blocks, size, block_size;
 
