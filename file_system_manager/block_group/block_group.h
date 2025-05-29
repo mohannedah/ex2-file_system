@@ -3,7 +3,6 @@
 #include "../../data_structures/bitmap/bitmap.h"
 #include "../../helpers/helpers.h"
 #include <bits/stdc++.h>
-#include "../../global_dependecies.h"
 
 class BlockGroupINodeBitMap : public BitMap<NUM_INODES_PER_GROUP>
 {
@@ -128,10 +127,8 @@ struct BlockGroupINode
 class BlockDescriptorManager
 {
 private:
-    Disk *disk_manager;
-
 public:
-    BlockDescriptorManager(Disk *disk_manager);
+    BlockDescriptorManager();
 
     int read_inode_info(int inode_number, BlockGroupINode *inode);
 

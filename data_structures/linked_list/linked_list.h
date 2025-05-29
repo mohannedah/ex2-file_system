@@ -7,7 +7,7 @@ template <typename T>
 struct ListNode
 {
     T data;
-    ListNode *next, *prev;
+    ListNode<T> *next, *prev;
 
     ListNode(T data)
     {
@@ -15,6 +15,26 @@ struct ListNode
         this->next = nullptr;
         this->prev = nullptr;
     }
+};
+
+
+template<typename T>
+struct BlockListNode : public ListNode<T>, protected CacheableInstance {
+    public:
+    int list_node_number;
+   
+    BlockListNode(T data, int list_node_number) : ListNode<T>(data) {
+        this->list_node_number = list_node_number;
+    }
+
+    ~BlockListNode() override {
+        this->free();
+    };
+
+    protected:
+    void free() override {
+        this->buffer_pool->free_list_node(this->list_node_number);
+    };
 };
 
 template <typename T>

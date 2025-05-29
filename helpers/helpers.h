@@ -1,9 +1,9 @@
 #pragma once
 
 #include "../shared_types.h"
-#include "../disk_simulator_manager/disk.h"
+#include "../global_dependecies.h"
 
-inline int write_block_disk_helper(int block_number, char *data, Disk *disk_manager)
+inline int write_block_disk_helper(int block_number, char *data)
 {
     char *start_ptr = data;
 
@@ -32,7 +32,7 @@ inline int write_block_disk_helper(int block_number, char *data, Disk *disk_mana
     return 0;
 };
 
-inline int retreive_block_disk_helper(int block_number, MemoryBlock *block, Disk *disk_manager)
+inline int retreive_block_disk_helper(int block_number, MemoryBlock *block)
 {
     int num_sectors = BLOCK_SIZE / SECTOR_SIZE;
 

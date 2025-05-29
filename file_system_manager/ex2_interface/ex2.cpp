@@ -1,20 +1,19 @@
 #include "ex2.h"
 
-static inline void read_super_block(SuperBlock *super_block, Disk *disk_manager)
+static inline void read_super_block(SuperBlock *super_block)
 {
     MemoryBlock block;
 
-    retreive_block_disk_helper(1, &block, disk_manager);
+    retreive_block_disk_helper(1, &block);
 
     memcpy(super_block, block.data, sizeof(SuperBlock));
 };
 
-EX2FILESYSTEM::EX2FILESYSTEM(BlockDescriptorManager *descriptor_manager, Disk *disk_manager)
+EX2FILESYSTEM::EX2FILESYSTEM(BlockDescriptorManager *descriptor_manager)
 {
     this->block_manager = descriptor_manager;
-    this->disk_manager = disk_manager;
 
-    read_super_block(&this->super_block, this->disk_manager);
+    read_super_block(&this->super_block);
 };
 
 EX2FILESYSTEM::~EX2FILESYSTEM() {
@@ -103,18 +102,18 @@ int EX2FILESYSTEM::my_close(int file_descriptor)
     return 0;
 };
 
-static inline int get_data_block(int inode_number, int block_idx, BlockGroupINode &inode, BlockDescriptorManager *block_manager, MemoryBlock *block, Disk *disk_manager)
+static inline int get_data_block(int inode_number, int block_idx, BlockGroupINode &inode, BlockDescriptorManager *block_manager, MemoryBlock *block)
 {
     int is_occupied = inode.blocks[block_idx] != 0;
 
     if (is_occupied)
-        return retreive_block_disk_helper(inode.blocks[block_idx], block, disk_manager);
+        return retreive_block_disk_helper(inode.blocks[block_idx], block);
 
     int free_block_number = block_manager->find_first_empty_data_block(inode_number);
 
     inode.blocks[block_idx] = free_block_number;
 
-    return retreive_block_disk_helper(inode.blocks[block_idx], block, disk_manager);
+    return retreive_block_disk_helper(inode.blocks[block_idx], block);
 };
 
 int EX2FILESYSTEM::my_file_system_read(int file_descriptor, char *buffer, int size)
@@ -151,7 +150,7 @@ int EX2FILESYSTEM::my_file_system_read(int file_descriptor, char *buffer, int si
 
     if (starting_block == ending_block)
     {
-        int status = retreive_block_disk_helper(inode.blocks[starting_block], &block, this->disk_manager);
+        int status = retreive_block_disk_helper(inode.blocks[starting_block], &block);
 
         if (status == -1)
         {
@@ -163,7 +162,7 @@ int EX2FILESYSTEM::my_file_system_read(int file_descriptor, char *buffer, int si
     }
     else
     {
-        int status = retreive_block_disk_helper(inode.blocks[starting_block], &block, this->disk_manager);
+        int status = retreive_block_disk_helper(inode.blocks[starting_block], &block);
 
         if (status == -1)
         {
@@ -177,7 +176,7 @@ int EX2FILESYSTEM::my_file_system_read(int file_descriptor, char *buffer, int si
         {
             int block_number = inode.blocks[curr_block_idx];
 
-            status = retreive_block_disk_helper(block_number, &block, this->disk_manager);
+            status = retreive_block_disk_helper(block_number, &block);
 
             if (status == -1)
             {
@@ -190,7 +189,7 @@ int EX2FILESYSTEM::my_file_system_read(int file_descriptor, char *buffer, int si
 
         int ending_byte = (my_file_info->position + size - 1) % BLOCK_SIZE;
 
-        status = retreive_block_disk_helper(inode.blocks[ending_block], &block, this->disk_manager);
+        status = retreive_block_disk_helper(inode.blocks[ending_block], &block);
 
         read_helper(0, ending_byte + 1, buffer, block.data);
     };
@@ -238,40 +237,40 @@ int EX2FILESYSTEM::my_file_system_write(int file_descriptor, char *buffer, int s
 
     if (starting_block == ending_block)
     {
-        get_data_block(my_file_info->inode_number, starting_block, inode, this->block_manager, &block, this->disk_manager);
+        get_data_block(my_file_info->inode_number, starting_block, inode, this->block_manager, &block);
 
         int starting_byte = my_file_info->file_size % BLOCK_SIZE, ending_byte = starting_byte + size;
 
         write_helper(starting_byte, ending_byte, block.data, buffer);
 
-        write_block_disk_helper(inode.blocks[starting_block], block.data, this->disk_manager);
+        write_block_disk_helper(inode.blocks[starting_block], block.data);
     }
     else
     {
-        get_data_block(my_file_info->inode_number, starting_block, inode, this->block_manager, &block, this->disk_manager);
+        get_data_block(my_file_info->inode_number, starting_block, inode, this->block_manager, &block);
 
         int starting_byte = my_file_info->position % BLOCK_SIZE, ending_byte = BLOCK_SIZE;
 
         write_helper(starting_byte, ending_byte, block.data, buffer);
 
-        write_block_disk_helper(inode.blocks[starting_block], block.data, this->disk_manager);
+        write_block_disk_helper(inode.blocks[starting_block], block.data);
 
         for (int curr_block_idx = starting_block; curr_block_idx < ending_block; curr_block_idx++)
         {
-            get_data_block(my_file_info->inode_number, curr_block_idx, inode, this->block_manager, &block, this->disk_manager);
+            get_data_block(my_file_info->inode_number, curr_block_idx, inode, this->block_manager, &block);
 
             write_helper(0, BLOCK_SIZE, block.data, buffer);
 
-            write_block_disk_helper(inode.blocks[curr_block_idx], block.data, this->disk_manager);
+            write_block_disk_helper(inode.blocks[curr_block_idx], block.data);
         };
 
-        get_data_block(my_file_info->inode_number, ending_block, inode, this->block_manager, &block, this->disk_manager);
+        get_data_block(my_file_info->inode_number, ending_block, inode, this->block_manager, &block);
 
         ending_byte = (my_file_info->position + size - 1) % BLOCK_SIZE;
 
         write_helper(0, ending_byte + 1, block.data, buffer);
 
-        write_block_disk_helper(inode.blocks[ending_block], block.data, this->disk_manager);
+        write_block_disk_helper(inode.blocks[ending_block], block.data);
     };
 
     my_file_info->file_size = new_size;
@@ -315,34 +314,34 @@ int EX2FILESYSTEM::my_file_system_write_at(int file_descriptor, int start_positi
 
     if (starting_block == ending_block)
     {
-        int status = get_data_block(my_file->inode_number, starting_block, inode, this->block_manager, &block, this->disk_manager);
+        int status = get_data_block(my_file->inode_number, starting_block, inode, this->block_manager, &block);
 
         write_helper(start_position % BLOCK_SIZE, end_position, block.data, buffer);
 
-        write_block_disk_helper(inode.blocks[starting_block], block.data, this->disk_manager);
+        write_block_disk_helper(inode.blocks[starting_block], block.data);
     }
     else
     {
-        int status = get_data_block(my_file->inode_number, starting_block, inode, this->block_manager, &block, this->disk_manager);
+        int status = get_data_block(my_file->inode_number, starting_block, inode, this->block_manager, &block);
 
         write_helper(start_position % BLOCK_SIZE, BLOCK_SIZE, block.data, buffer);
 
-        write_block_disk_helper(inode.blocks[starting_block], block.data, this->disk_manager);
+        write_block_disk_helper(inode.blocks[starting_block], block.data);
 
         for (int block_idx = starting_block + 1; block_idx <= ending_block - 1; block_idx += 1)
         {
-            status = get_data_block(my_file->inode_number, block_idx, inode, this->block_manager, &block, this->disk_manager);
+            status = get_data_block(my_file->inode_number, block_idx, inode, this->block_manager, &block);
 
             write_helper(0, BLOCK_SIZE, block.data, buffer);
 
-            write_block_disk_helper(inode.blocks[block_idx], block.data, this->disk_manager);
+            write_block_disk_helper(inode.blocks[block_idx], block.data);
         }
 
-        status = get_data_block(my_file->inode_number, ending_block, inode, this->block_manager, &block, this->disk_manager);
+        status = get_data_block(my_file->inode_number, ending_block, inode, this->block_manager, &block);
 
         write_helper(0, end_position % BLOCK_SIZE, block.data, buffer);
 
-        write_block_disk_helper(inode.blocks[ending_block], block.data, this->disk_manager);
+        write_block_disk_helper(inode.blocks[ending_block], block.data);
     };
 
     return 1;

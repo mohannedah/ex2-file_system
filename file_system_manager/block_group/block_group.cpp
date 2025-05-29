@@ -38,7 +38,7 @@ BlockGroupINode::~BlockGroupINode()
 
     BlockGroupINode::write_memory_block(&block, this);
 
-    write_block_disk_helper(get_starting_block_inode(this->uid), block.data, disk_manager);
+    write_block_disk_helper(get_starting_block_inode(this->uid), block.data);
 };
 
 BlockGroupINodeBitMap::~BlockGroupINodeBitMap()
@@ -47,7 +47,7 @@ BlockGroupINodeBitMap::~BlockGroupINodeBitMap()
 
     this->copy_write_memory_block(&block);
 
-    write_block_disk_helper(this->block_number, block.data, disk_manager);
+    write_block_disk_helper(this->block_number, block.data);
 }
 
 BlockGroupBlockBitMap::~BlockGroupBlockBitMap()
@@ -56,7 +56,7 @@ BlockGroupBlockBitMap::~BlockGroupBlockBitMap()
 
     this->copy_write_memory_block(&block);
 
-    write_block_disk_helper(this->block_number, block.data, disk_manager);
+    write_block_disk_helper(this->block_number, block.data);
 }
 
 BlockGroupDescriptor::~BlockGroupDescriptor()
@@ -65,7 +65,7 @@ BlockGroupDescriptor::~BlockGroupDescriptor()
 
     memcpy(block.data, this, BLOCK_SIZE);
 
-    write_block_disk_helper(this->block_number, block.data, disk_manager);
+    write_block_disk_helper(this->block_number, block.data);
 };
 
 int BlockGroupINodeBitMap::copy_write_memory_block(MemoryBlock *block)
@@ -141,9 +141,8 @@ BlockGroupBlockBitMap BlockGroupBlockBitMap::write_block_bitmap(MemoryBlock *blo
     return bitmap_block;
 };
 
-BlockDescriptorManager::BlockDescriptorManager(Disk *disk_manager)
+BlockDescriptorManager::BlockDescriptorManager()
 {
-    this->disk_manager = disk_manager;
 };
 
 int BlockDescriptorManager::find_first_empty_data_block(int inode_number)
@@ -159,7 +158,7 @@ int BlockDescriptorManager::find_first_empty_data_block(int inode_number)
 
     MemoryBlock block;
 
-    retreive_block_disk_helper(get_starting_block_bitmap(group_number), &block, this->disk_manager);
+    retreive_block_disk_helper(get_starting_block_bitmap(group_number), &block);
 
     BlockGroupBlockBitMap block_bitmap = BlockGroupBlockBitMap::write_block_bitmap(&block);
 
@@ -179,7 +178,7 @@ int BlockDescriptorManager::find_first_empty_inode(int block_group_number, Block
 
     MemoryBlock block;
 
-    retreive_block_disk_helper(get_starting_block_inode_bitmap(block_group_number), &block, this->disk_manager);
+    retreive_block_disk_helper(get_starting_block_inode_bitmap(block_group_number), &block);
 
     BlockGroupINodeBitMap bit_map = BlockGroupINodeBitMap::write_inode_bitmap(&block);
 
@@ -194,7 +193,7 @@ int BlockDescriptorManager::read_block_descriptor(int group_number, BlockGroupDe
 {
     MemoryBlock block;
 
-    retreive_block_disk_helper(get_starting_block_group_descriptor(group_number), &block, this->disk_manager);
+    retreive_block_disk_helper(get_starting_block_group_descriptor(group_number), &block);
 
     memcpy(block_descriptor, block.data, sizeof(BlockGroupDescriptor));
 
@@ -207,14 +206,14 @@ int BlockDescriptorManager::write_inode_info(int inode_number, BlockGroupINode *
 
     BlockGroupINode::write_memory_block(&block, inode);
 
-    return write_block_disk_helper(get_starting_block_inode(inode_number), (char *)block.data, this->disk_manager);
+    return write_block_disk_helper(get_starting_block_inode(inode_number), (char *)block.data);
 }
 
 int BlockDescriptorManager::read_inode_info(int inode_number, BlockGroupINode *inode)
 {
     MemoryBlock block;
 
-    retreive_block_disk_helper(get_starting_block_inode(inode_number), &block, this->disk_manager);
+    retreive_block_disk_helper(get_starting_block_inode(inode_number), &block);
 
     BlockGroupINode::copy_memory_block(&block, inode);
 
@@ -261,7 +260,7 @@ void BlockDescriptorManager::initialize_inodes()
 
         BlockGroupINode::write_memory_block(&block, &inode);
 
-        write_block_disk_helper(block_number, block.data, this->disk_manager);
+        write_block_disk_helper(block_number, block.data);
     }
 };
 
@@ -288,7 +287,7 @@ void BlockDescriptorManager::initialize_block_group_bitmaps()
             exit(-1);
         }
 
-        status = write_block_disk_helper(block_number, block.data, this->disk_manager);
+        status = write_block_disk_helper(block_number, block.data);
 
         block_number = get_starting_block_bitmap(group_number);
 
@@ -296,7 +295,7 @@ void BlockDescriptorManager::initialize_block_group_bitmaps()
 
         data_block_bitmap.copy_write_memory_block(&block);
 
-        status = write_block_disk_helper(block_number, block.data, this->disk_manager);
+        status = write_block_disk_helper(block_number, block.data);
     };
 };
 
@@ -321,6 +320,6 @@ void BlockDescriptorManager::initialize_block_group_descriptors()
 
         initialize_block_group_descriptor_helper(&block_descriptor, block_number);
 
-        write_block_disk_helper(block_number, (char *)&block_descriptor, this->disk_manager);
+        write_block_disk_helper(block_number, (char *)&block_descriptor);
     };
 };

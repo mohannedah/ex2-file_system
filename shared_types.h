@@ -2,7 +2,6 @@
 #define SHARED_TYPES_H
 
 #include <bits/stdc++.h>
-
 using namespace std;
 
 const uint16_t SECTOR_SIZE = 512;
@@ -36,6 +35,11 @@ enum FILE_PERMISSIONS
 {
     READ_BIT = (1 << 1),
     WRITE_BIT = (1 << 2)
+};
+
+class CacheableInstance {
+    protected:
+    virtual void free() = 0;
 };
 
 #endif

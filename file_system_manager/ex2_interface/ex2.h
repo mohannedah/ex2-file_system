@@ -3,7 +3,6 @@
 #include "../../shared_types.h"
 #include "../../helpers/helpers.h"
 #include "../block_group/block_group.h"
-
 class BlockDescriptorManager;
 
 struct SuperBlock
@@ -48,10 +47,8 @@ private:
     unordered_map<int, MyFile *> mp; // mapping file_descriptors to MyFile struct
     int created_file_descriptors = 0;
     BlockDescriptorManager *block_manager;
-    Disk *disk_manager;
-
 public:
-    EX2FILESYSTEM(BlockDescriptorManager *descriptor_manager, Disk *disk_manager);
+    EX2FILESYSTEM(BlockDescriptorManager *descriptor_manager);
 
     ~EX2FILESYSTEM();
 

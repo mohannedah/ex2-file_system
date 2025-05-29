@@ -20,9 +20,7 @@ LinkedList<T>::~LinkedList()
     while (curr_node != nullptr)
     {
         next_node = curr_node->next;
-
-        munlock(curr_node, sizeof(ListNode<T>));
-
+        
         free(curr_node);
 
         curr_node = next_node;
