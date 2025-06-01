@@ -19,7 +19,7 @@ struct ListNode
 
 
 template<typename T>
-struct BlockListNode : public ListNode<T>, protected CacheableInstance {
+struct BlockListNode : public ListNode<T> {
     public:
     int list_node_number;
    
@@ -28,7 +28,7 @@ struct BlockListNode : public ListNode<T>, protected CacheableInstance {
     }
 
     ~BlockListNode() override {
-        this->free();
+        delete this->data;
     };
 
     protected:

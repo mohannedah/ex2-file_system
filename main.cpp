@@ -20,14 +20,14 @@ void initialize_super_block()
 void initialize_helper(Disk *disk_manager)
 {
     initialize_super_block();
-    write_block_disk_helper(1, (char *)&super_block, disk_manager);
+    write_block_disk_helper(1, (char *)&super_block);
 };
 
 Disk *disk_manager = new Disk();
 
 int main()
 {
-    BlockDescriptorManager descriptor_manager(disk_manager);
+    BlockDescriptorManager descriptor_manager;
 
     descriptor_manager.initialize_block_group_bitmaps();
 
@@ -40,7 +40,7 @@ int main()
 
     initialize_helper(disk_manager);
 
-    EX2FILESYSTEM file_system(&descriptor_manager, disk_manager);
+    EX2FILESYSTEM file_system(&descriptor_manager);
 
     int vacant_inode = file_system.create_file("Mohanned Ahmed", sizeof("Mohanned Ahmed"), READ_BIT | WRITE_BIT, 0);
 

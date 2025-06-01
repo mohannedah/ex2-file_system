@@ -119,7 +119,11 @@ int LinkedList<T>::insert_tail(ListNode<T> *node)
 template <typename T>
 typename LinkedList<T>::Iterator LinkedList<T>::begin()
 {
-    return LinkedList<T>::Iterator(this->get_head());
+    auto node = this->get_head();
+
+    if(node == nullptr) return LinkedList<T>::Iterator(this->tail);
+
+    return LinkedList<T>::Iterator(node);
 };
 
 template <typename T>

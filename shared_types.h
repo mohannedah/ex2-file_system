@@ -27,7 +27,8 @@ struct Sector
 struct MemoryBlock
 {
     int block_number = -1;
-    bool is_pinned = false;
+    bool os_operated = false;
+    bool is_dirty = false;
     char data[BLOCK_SIZE];
 };
 
