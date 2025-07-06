@@ -1,5 +1,6 @@
 #include <sys/mman.h>
 #include "../shared_types.h"
+#include "../disk_simulator_manager/disk.h"
 #include "../helpers/helpers.h"
 #include "../data_structures/linked_list/linked_list.h"
 
@@ -9,13 +10,14 @@ class BufferPool {
     int allocate_memory_regions();
     int num_blocks;
     char* large_memory_region;
+    Disk *disk_manager;
     
     public:
     LinkedList<MemoryBlock*> free_list;
 
     map<int, BlockListNode<MemoryBlock*>*> mp_block_list_node;
 
-    BufferPool(int num_blocks);
+    BufferPool(int num_blocks, Disk* disk_manager);
     
     ~BufferPool();
     

@@ -43,7 +43,6 @@ TEST(linked_list_test_2, unlink_after_insertion) {
     ASSERT_EQ(list_node->next, nullptr);
 
     for(auto node : linked_list) {
-        cout << "mohanned ahmed" << endl;
         ASSERT_NE(node.data, list_node->data);
     }
 }

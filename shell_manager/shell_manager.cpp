@@ -1,10 +1,11 @@
 #include "shell_manager.h"
 
-static inline int get_file_info(int dir_inode_number, string &file_name, DirectoryStructure *dir_struct)
+
+int ShellManager::get_file_info(int dir_inode_number, string &file_name, DirectoryStructure *dir_struct, EX2FILESYSTEM *ex2_file_system)
 {
     vector<DirectoryStructure *> v;
 
-    int status = read_directory_info(dir_inode_number, v);
+    int status = read_directory_info(dir_inode_number, v, ex2_file_system);
 
     int state = -1;
 
@@ -26,7 +27,7 @@ static inline int get_file_info(int dir_inode_number, string &file_name, Directo
     return state;
 };
 
-static inline int extract_permissions(string &permissions)
+int ShellManager::extract_permissions(string &permissions)
 {
     int permission = 0;
 
@@ -50,13 +51,19 @@ static inline int extract_permissions(string &permissions)
     return permission;
 };
 
-static inline int read_directory_info(int inode_number, vector<DirectoryStructure *> &v)
+int ShellManager::read_directory_info(int inode_number, vector<DirectoryStructure *> &v, EX2FILESYSTEM* ex2_file_system)
 {
     int file_descriptor = ex2_file_system->my_open(inode_number, READ_BIT);
-
+    
     MyFile *my_file = ex2_file_system->get_file_info(file_descriptor);
-
+    
     int file_size = my_file->file_size;
+
+
+    if(!file_size) {
+        ex2_file_system->my_close(file_descriptor);
+        return 0;
+    }
 
     char buffer[file_size];
 
@@ -88,7 +95,7 @@ static inline int read_directory_info(int inode_number, vector<DirectoryStructur
 
     int files_read = 0;
 
-    while (total_files--)
+    while (total_files > 0)
     {
         DirectoryStructure *dir_struct = new DirectoryStructure();
 
@@ -97,6 +104,8 @@ static inline int read_directory_info(int inode_number, vector<DirectoryStructur
         files_read += 1;
 
         v.push_back(dir_struct);
+
+        total_files -= 1;
     }
 
     ex2_file_system->my_close(file_descriptor);
@@ -104,7 +113,7 @@ static inline int read_directory_info(int inode_number, vector<DirectoryStructur
     return 1;
 };
 
-static inline void split_file_name(string &file_name, vector<string> &v)
+void ShellManager::split_file_name(string &file_name, vector<string> &v)
 {
     int curr_idx = 0;
 
@@ -121,15 +130,16 @@ static inline void split_file_name(string &file_name, vector<string> &v)
 
         v.push_back(curr_file_name);
     }
+    
 }
 
-static inline int traverse_hierachy(vector<string> &splitted_file_name, DirectoryStructure &dir_struct, int end)
+int ShellManager::traverse_hierachy(vector<string> &splitted_file_name, DirectoryStructure &dir_struct, int end, EX2FILESYSTEM *ex2_file_system)
 {
     int curr_inode_number = curr_directory_inode_number;
 
     for (int i = 0; i < end; i++)
     {
-        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
+        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct, ex2_file_system);
 
         if (status == -1)
         {
@@ -144,12 +154,13 @@ static inline int traverse_hierachy(vector<string> &splitted_file_name, Director
         }
 
         curr_inode_number = dir_struct.inode_number;
+
     };
 
     return curr_inode_number;
 };
 
-static inline void set_vacant_dir_struct(DirectoryStructure *dir_struct, int inode_number, string &file_name, uint16_t mask_permissions, bool is_directory)
+void ShellManager::set_vacant_dir_struct(DirectoryStructure *dir_struct, int inode_number, string &file_name, uint16_t mask_permissions, bool is_directory)
 {
     dir_struct->inode_number = inode_number;
 
@@ -160,7 +171,12 @@ static inline void set_vacant_dir_struct(DirectoryStructure *dir_struct, int ino
     dir_struct->is_directory = is_directory;
 };
 
-int change_directory(string &file_name)
+
+ShellManager::ShellManager(EX2FILESYSTEM* ex2_file_system) {
+    this->ex2_file_system = ex2_file_system;
+};
+
+int ShellManager::change_directory(string &file_name)
 {
     vector<string> splitted_file_name;
 
@@ -168,7 +184,7 @@ int change_directory(string &file_name)
 
     DirectoryStructure dir_struct;
 
-    int ending_inode_number = traverse_hierachy(splitted_file_name, dir_struct, splitted_file_name.size());
+    int ending_inode_number = traverse_hierachy(splitted_file_name, dir_struct, splitted_file_name.size(), ex2_file_system);
 
     if (ending_inode_number == -1)
     {
@@ -182,15 +198,17 @@ int change_directory(string &file_name)
     return 0;
 };
 
-int create_file(string file_name, string permissions, bool is_directory)
+int ShellManager::create_file(string &file_name, string &permissions, bool is_directory)
 {
     vector<string> splitted_file_name;
-
+    
     split_file_name(file_name, splitted_file_name);
 
     DirectoryStructure dir_struct;
 
-    int curr_inode_number = traverse_hierachy(splitted_file_name, dir_struct, splitted_file_name.size() - 1);
+    int curr_inode_number = traverse_hierachy(splitted_file_name, dir_struct, splitted_file_name.size() - 1, ex2_file_system);
+
+    if(curr_inode_number == -1) return -1;
 
     int permission = extract_permissions(permissions);
 
@@ -205,7 +223,7 @@ int create_file(string file_name, string permissions, bool is_directory)
 
     char buffer[sizeof(DirectoryStructure)];
 
-    set_vacant_dir_struct(&dir_struct, created_file_inode_number, file_name, permission, 0);
+    set_vacant_dir_struct(&dir_struct, created_file_inode_number, file_name, permission, is_directory);
 
     dir_struct.write_char_bytes(buffer);
 
@@ -216,7 +234,7 @@ int create_file(string file_name, string permissions, bool is_directory)
     return 0;
 };
 
-int remove_file(string file_name)
+int ShellManager::remove_file(string &file_name)
 {
     vector<string> splitted_file_name;
 
@@ -226,14 +244,14 @@ int remove_file(string file_name)
 
     string &to_be_removed_file_name = splitted_file_name.back();
 
-    int dir_inode_number = traverse_hierachy(splitted_file_name, dir_struct, splitted_file_name.size() - 1);
+    int dir_inode_number = traverse_hierachy(splitted_file_name, dir_struct, splitted_file_name.size() - 1, ex2_file_system);
 
     if (dir_inode_number == -1)
     {
         return -1;
     }
 
-    int status = get_file_info(dir_inode_number, to_be_removed_file_name, &dir_struct);
+    int status = get_file_info(dir_inode_number, to_be_removed_file_name, &dir_struct, ex2_file_system);
 
     if (status == -1)
     {
@@ -242,9 +260,11 @@ int remove_file(string file_name)
     }
 
     status = ex2_file_system->delete_file(dir_struct.inode_number);
+
+    return status;
 };
 
-int create_directory(string file_name)
+int ShellManager::create_directory(string &file_name)
 {
     int mask_permissions = READ_BIT | WRITE_BIT;
 
@@ -258,7 +278,7 @@ int create_directory(string file_name)
 
     for (int i = 0; i < splitted_file_name.size() - 1; i++)
     {
-        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
+        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct, ex2_file_system);
 
         if (status == -1)
         {
@@ -298,7 +318,7 @@ int create_directory(string file_name)
     return 0;
 };
 
-int create_hard_link(string file_name, string corresponding_file_name)
+int ShellManager::create_hard_link(string &file_name, string &corresponding_file_name)
 {
     vector<string> splitted_file_name;
 
@@ -310,7 +330,7 @@ int create_hard_link(string file_name, string corresponding_file_name)
 
     for (int i = 0; i < splitted_file_name.size() - 1, i++;)
     {
-        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
+        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct, ex2_file_system);
 
         if (status == -1)
         {
@@ -337,11 +357,11 @@ int create_hard_link(string file_name, string corresponding_file_name)
 
     split_file_name(corresponding_file_name, splitted_file_name);
 
-    int curr_inode_number = curr_directory_inode_number;
+    curr_inode_number = curr_directory_inode_number;
 
     for (int i = 0; i < splitted_file_name.size() - 1; i++)
     {
-        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
+        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct, ex2_file_system);
 
         if (status == -1)
         {
@@ -360,7 +380,7 @@ int create_hard_link(string file_name, string corresponding_file_name)
 
     string extracted_file_name_corresponding = splitted_file_name.back();
 
-    int status = get_file_info(curr_inode_number, extracted_file_name_corresponding, &dir_struct);
+    int status = get_file_info(curr_inode_number, extracted_file_name_corresponding, &dir_struct, ex2_file_system);
 
     status = ex2_file_system->increment_hard_link_count(dir_struct.inode_number);
 
@@ -373,7 +393,7 @@ int create_hard_link(string file_name, string corresponding_file_name)
     return 1;
 };
 
-int create_soft_link(string file_name, string corresponding_file_name)
+int ShellManager::create_soft_link(string &file_name, string &corresponding_file_name)
 {
     vector<string> splitted_file_name;
 
@@ -384,7 +404,7 @@ int create_soft_link(string file_name, string corresponding_file_name)
     DirectoryStructure dir_struct;
 
     for(int i = 0; i < splitted_file_name.size() - 1; i++) {
-        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
+        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct, ex2_file_system);
         
         if(status == -1) {
             cout << "File " << splitted_file_name[i] << " is not found!" << endl;
@@ -401,7 +421,7 @@ int create_soft_link(string file_name, string corresponding_file_name)
 
     string new_file_name = splitted_file_name.back();
 
-    if(get_file_info(curr_inode_number, file_name, &dir_struct) == 0) {
+    if(get_file_info(curr_inode_number, file_name, &dir_struct, ex2_file_system) == 0) {
         cout << "File with the name " << splitted_file_name.back() << " already exists" << endl;
         return -1;
     }
@@ -411,7 +431,7 @@ int create_soft_link(string file_name, string corresponding_file_name)
     int curr_corresponding_inode_number = curr_directory_inode_number;
 
     for(int i = 0; i < splitted_file_name.size(); i++) {
-        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct);
+        int status = get_file_info(curr_inode_number, splitted_file_name[i], &dir_struct, ex2_file_system);
 
         if(status == -1) {
             cout << "File " << splitted_file_name[i] << " is not found!" << endl;
@@ -443,7 +463,7 @@ int create_soft_link(string file_name, string corresponding_file_name)
     return 0;
 };
 
-void print_curr_directory_name()
+void ShellManager::print_curr_directory_name()
 {
     cout << curr_directory_name << endl;
 }

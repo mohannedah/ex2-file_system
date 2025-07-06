@@ -7,6 +7,7 @@ add_subdirectory(third_party/googletest)
 add_subdirectory(disk_simulator_manager)
 add_subdirectory(data_structures)
 add_subdirectory(file_system_manager)
+add_subdirectory(shell_manager)
 add_subdirectory(tests)
 
 add_executable(main main.cpp)
@@ -16,7 +17,8 @@ target_link_libraries(main PRIVATE
     ex2
     disk_manager  
     bitmap        
-    linked_list    
+    linked_list
+    shell_manager    
     gtest
     gtest_main  
 )

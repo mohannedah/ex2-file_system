@@ -155,4 +155,4 @@ bool BitMap<T>::check_boundaries(int index)
     return 1;
 };
 
-template class BitMap<7900>;
+template class BitMap<7800>;

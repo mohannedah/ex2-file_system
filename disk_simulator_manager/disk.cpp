@@ -2,7 +2,7 @@
 
 Disk::Disk()
 {
-    this->file_descriptor = open("../file_image", O_RDWR);
+    this->file_descriptor = open("./file_image", O_RDWR);
 }
 
 Disk::~Disk()

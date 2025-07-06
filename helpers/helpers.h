@@ -1,9 +1,10 @@
-#pragma once
-
+#ifndef HELPERS_H
+#define HELPERS_H
 #include "../shared_types.h"
-#include "../global_dependecies.h"
+#include "../disk_simulator_manager/disk.h"
 
-inline int write_block_disk_helper(int block_number, char *data)
+
+inline int write_block_disk_helper(int block_number, char *data, Disk* disk_manager)
 {
     char *start_ptr = data;
 
@@ -32,7 +33,7 @@ inline int write_block_disk_helper(int block_number, char *data)
     return 0;
 };
 
-inline int retreive_block_disk_helper(int block_number, MemoryBlock *block)
+inline int retreive_block_disk_helper(int block_number, MemoryBlock *block, Disk* disk_manager)
 {
     int num_sectors = BLOCK_SIZE / SECTOR_SIZE;
 
@@ -63,3 +64,5 @@ inline int64_t get_current_time()
 {
     return chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
 };
+
+#endif

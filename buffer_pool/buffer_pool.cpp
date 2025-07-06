@@ -1,8 +1,8 @@
 #include "buffer_pool.h"
 
-BufferPool::BufferPool(int num_blocks) {
+BufferPool::BufferPool(int num_blocks, Disk *disk_manager) {
     this->num_blocks = num_blocks;
-
+    this->disk_manager = disk_manager;
     int status = this->allocate_memory_regions();
 
     if(status == -1) {
@@ -45,7 +45,7 @@ int BufferPool::lock(int block_number) {
 };
 
 int BufferPool::read_memory_block_helper(int block_number, MemoryBlock* block) {
-    return retreive_block_disk_helper(block_number, block);
+    return retreive_block_disk_helper(block_number, block, this->disk_manager);
 };
 
 MemoryBlock* BufferPool::get(int block_number) {
@@ -101,7 +101,7 @@ int BufferPool::force_flush_memory_block(MemoryBlock *block) {
 
     if(block_number == -1 || (!block->is_dirty)) return 0;
 
-    int status = write_block_disk_helper(block_number, block->data);
+    int status = write_block_disk_helper(block_number, block->data, this->disk_manager);
 
     block->is_dirty = false;
 

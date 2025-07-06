@@ -3,6 +3,7 @@
 #include "file_system_manager/block_group/block_group.h"
 #include "file_system_manager/ex2_interface/ex2.h"
 #include "global_dependecies.h"
+#include "./shell_manager/shell_manager.h"
 
 using namespace std;
 
@@ -20,42 +21,52 @@ void initialize_super_block()
 void initialize_helper(Disk *disk_manager)
 {
     initialize_super_block();
-    write_block_disk_helper(1, (char *)&super_block);
+    write_block_disk_helper(1, (char *)&super_block, disk_manager);
 };
 
 Disk *disk_manager = new Disk();
-
 int main()
 {
-    BlockDescriptorManager descriptor_manager;
-
+    BlockDescriptorManager descriptor_manager; 
+    
     descriptor_manager.initialize_block_group_bitmaps();
-
-
+    
     descriptor_manager.initialize_block_group_descriptors();
-
-
+    
     descriptor_manager.initialize_inodes();
-
 
     initialize_helper(disk_manager);
 
-    EX2FILESYSTEM file_system(&descriptor_manager);
+    EX2FILESYSTEM ex2_file_system(&descriptor_manager, disk_manager);
 
-    int vacant_inode = file_system.create_file("Mohanned Ahmed", sizeof("Mohanned Ahmed"), READ_BIT | WRITE_BIT, 0);
+    ShellManager shell_manager(&ex2_file_system);    
 
-    int fd = file_system.my_open(vacant_inode, READ_BIT | WRITE_BIT);
+    
+    string file_name = "mohanned", file_permissions = "RW";
 
-    file_system.my_file_system_write(fd, "Mohanned Ahmed", sizeof("Mohanned Ahmed") - 1);
+    int status = shell_manager.create_file(file_name, file_permissions, 1);
 
-    file_system.my_file_system_write(fd, " Mohanned Ahmed", sizeof(" Mohanned Ahmed") - 1);
-    char *some_string = "Mohanned Ahmed";
+    
+    status = shell_manager.change_directory(file_name);
 
-    char buffer[strlen(some_string) + strlen(some_string) + 2];
+    shell_manager.print_curr_directory_name();
 
-    file_system.my_file_system_read(fd, buffer, strlen("Mohanned Ahmed") * 2 + 1);
+    
+    file_name = "ahmed";
+    
+    shell_manager.create_file(file_name, file_permissions, 1);
 
-    buffer[strlen(some_string)*2 + 1] = '\0';
-    cout << buffer << endl;
+    shell_manager.change_directory(file_name);
+
+    shell_manager.print_curr_directory_name();
+
+
+    file_name = "fadwa";
+
+    shell_manager.create_file(file_name, file_permissions, 1);
+
+    shell_manager.change_directory(file_name);
+
+    shell_manager.print_curr_directory_name();
     return 0;
 }

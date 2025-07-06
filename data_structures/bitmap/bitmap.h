@@ -11,7 +11,7 @@ struct BitMap
 public:
     bool check_boundaries(int index);
 
-    int *blocks, size, block_size;
+    int size, block_size, *blocks;
 
     BitMap();
 

@@ -2,6 +2,7 @@
 #define BLOCK_GROUP_H
 #include "../../data_structures/bitmap/bitmap.h"
 #include "../../helpers/helpers.h"
+#include "../../global_dependecies.h"
 #include <bits/stdc++.h>
 
 class BlockGroupINodeBitMap : public BitMap<NUM_INODES_PER_GROUP>
@@ -12,7 +13,7 @@ public:
 
     ~BlockGroupINodeBitMap();
 
-    BlockGroupINodeBitMap(MemoryBlock *block) : BitMap((int *)(block->data) + 1, (int *)block->data, (int *)(block->data) + 2)
+    BlockGroupINodeBitMap(MemoryBlock *block) : BitMap((int *)(block->data), (int *)block->data + 1, (int *)(block->data) + 2)
     {
         int *start_ptr = (int *)block->data;
 
